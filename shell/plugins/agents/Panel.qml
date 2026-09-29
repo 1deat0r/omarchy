@@ -696,6 +696,7 @@ Panel {
                   Button {
                     required property var modelData
                     text: modelData.label
+                    tooltipText: modelData.label + " at " + root.switchThreshold(root.provider) + "%"
                     selected: (modelData.mode === "auto") === root.autoSwitch
                     bordered: true
                     foreground: root.foreground
@@ -708,14 +709,18 @@ Panel {
                 }
               }
 
-              Text {
-                textFormat: Text.PlainText
+              Button {
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                text: "at " + root.switchThreshold(root.provider) + "%"
-                color: root.dim
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
+                text: "+"
+                tooltipText: "Add account"
+                bordered: true
+                foreground: root.foreground
+                fontFamily: root.fontFamily
+                fontSize: Style.font.caption
+                horizontalPadding: Style.space(8)
+                verticalPadding: Style.space(2)
+                onClicked: root.addAccount()
               }
             }
 
@@ -734,7 +739,7 @@ Panel {
           }
 
           Row {
-            visible: root.accountsSupported
+            visible: root.accountsSupported && !root.multiAccount
             width: parent.width
             spacing: Style.spacing.md
 
