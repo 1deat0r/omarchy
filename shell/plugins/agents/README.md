@@ -20,7 +20,7 @@ cross-device aggregation); `Agent.qml` is the per-record file watcher.
   label, email, plan, its own meters, and an _Active_ badge on the account
   new sessions start as. A parked account whose sign-in lapsed shows its last
   known numbers in the urgent color. A small Notify / Autoswitch toggle above
-  the cards picks what reaching the threshold does. (hover it for the threshold), and a small + beside it adds an account. With a single account, an _Add account_ button sits below the
+  the cards picks what reaching the threshold does (hover it for the threshold), and a small + beside it adds an account. With a single account, an _Add account_ button sits below the
   limits for Claude and Codex instead.
 - **Balance** — prepaid agents report a credit ledger instead of limits:
   remaining credit, a fuel-gauge meter that drains toward empty, and
