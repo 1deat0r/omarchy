@@ -714,7 +714,7 @@ Panel {
                 anchors.verticalCenter: parent.verticalCenter
                 text: "+"
                 tooltipText: "Add account"
-                bordered: true
+                bordered: false
                 foreground: root.foreground
                 fontFamily: root.fontFamily
                 fontSize: Style.font.caption
