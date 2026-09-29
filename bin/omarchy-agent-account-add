@@ -22,8 +22,8 @@ fi
 
 cat <<EOF
 
-The browser signs in as whoever is logged into $site right now.
-Switch $site to the account you're adding first, or copy the login link into a private window.
+Sign in as the account you're adding in the private window that opens.
+If a private window was already open, close it first, or $site may reuse whoever it has signed in.
 
 Don't log out of the $name CLI to do this: logging out revokes the saved sign-in.
 
@@ -31,10 +31,18 @@ EOF
 
 home=$(omarchy-agent-account-state begin "$provider") || exit 1
 
+# Your main browser is almost certainly signed in to the account you already
+# have, and the login would quietly reuse it. Both CLIs open their login page
+# through $BROWSER, so point it at a private window instead.
+browser=$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/omarchy-account-browser.XXXXXX")
+trap 'rm -f "$browser"' EXIT
+printf '#!/bin/bash\nexec omarchy-launch-browser --private "$1"\n' >"$browser"
+chmod +x "$browser"
+
 if [[ $provider == "claude" ]]; then
-  CLAUDE_CONFIG_DIR="$home" claude auth login
+  BROWSER="$browser" CLAUDE_CONFIG_DIR="$home" claude auth login
 else
-  CODEX_HOME="$home" codex login
+  BROWSER="$browser" CODEX_HOME="$home" codex login
 fi
 
 if account=$(omarchy-agent-account-state register "$provider" "$label" "$home"); then

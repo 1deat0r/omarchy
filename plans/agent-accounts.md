@@ -61,8 +61,8 @@ A new `agent-account` route under the existing `agent` group:
 
 1. Registers the primary if the registry doesn't exist yet, reading its identity from `~/.claude.json` / `~/.codex/auth.json`.
 2. Creates a temporary home under the accounts dir, lays down the shared symlinks.
-3. Opens a terminal running `CLAUDE_CONFIG_DIR=<tmp> claude auth login` (Codex: `CODEX_HOME=<tmp> codex login`). Before it starts, it prints the one thing people get wrong: *the browser will sign in as whoever is logged into claude.ai / chatgpt.com — switch accounts there first, or use a private window.* It never tells anyone to log out of the CLI.
-4. Reads the new identity. If `accountId` matches an account already registered, it deletes the temp home and says "That's already Personal — sign the browser into the other account and try again."
+3. Opens a terminal running `CLAUDE_CONFIG_DIR=<tmp> claude auth login` (Codex: `CODEX_HOME=<tmp> codex login`). `$BROWSER` points at `omarchy-launch-browser --private` for the login, since the main browser is almost certainly signed in to the account you already have and would be picked up silently; both CLIs open their login page through `$BROWSER`. It never tells anyone to log out of the CLI.
+4. Reads the new identity. If `accountId` matches an account already registered, it deletes the temp home and says "That's already Personal — try again, signing in as the other account."
 5. Otherwise moves the temp home into place under its slug, appends it to the registry (not active), and runs one forced usage probe so the panel shows it immediately.
 
 ### Usage per account

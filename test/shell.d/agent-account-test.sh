@@ -24,6 +24,7 @@ SH
 cat >"$mock_bin/claude" <<'SH'
 #!/bin/bash
 if [[ ${1:-} == "auth" && ${2:-} == "login" ]]; then
+  "$BROWSER" "https://claude.com/oauth/authorize"
   [[ -n ${OMARCHY_TEST_LOGIN_UUID:-} ]] || exit 1
   printf '{"oauthAccount":{"accountUuid":"%s","emailAddress":"%s","organizationName":"Work"}}\n' \
     "$OMARCHY_TEST_LOGIN_UUID" "$OMARCHY_TEST_LOGIN_EMAIL" >"$CLAUDE_CONFIG_DIR/.claude.json"
@@ -36,6 +37,7 @@ SH
 cat >"$mock_bin/codex" <<'SH'
 #!/bin/bash
 if [[ ${1:-} == "login" ]]; then
+  "$BROWSER" "https://auth.openai.com/oauth/authorize"
   claims=$(printf '{"email":"%s","https://api.openai.com/auth":{"chatgpt_plan_type":"pro"}}' "$OMARCHY_TEST_LOGIN_EMAIL" | base64 -w0 | tr '+/' '-_' | tr -d '=')
   printf '{"auth_mode":"chatgpt","tokens":{"account_id":"%s","id_token":"h.%s.s"}}\n' "$OMARCHY_TEST_LOGIN_UUID" "$claims" >"$CODEX_HOME/auth.json"
   exit 0
@@ -52,6 +54,11 @@ cat >"$mock_bin/omarchy-default-agent" <<'SH'
 echo "${OMARCHY_TEST_DEFAULT_AGENT:-claude}"
 SH
 
+cat >"$mock_bin/omarchy-launch-browser" <<'SH'
+#!/bin/bash
+printf '%s\n' "$*" >>"$OMARCHY_TEST_BROWSER_LOG"
+SH
+
 chmod +x "$mock_bin"/*
 
 export HOME="$test_tmp/home"
@@ -59,6 +66,7 @@ export XDG_STATE_HOME="$test_tmp/state"
 export PATH="$mock_bin:$ROOT/bin:$PATH"
 export OMARCHY_PATH="$ROOT"
 export OMARCHY_TEST_NOTIFICATIONS="$notifications"
+export OMARCHY_TEST_BROWSER_LOG="$test_tmp/browser"
 unset CLAUDE_CONFIG_DIR CODEX_HOME
 
 accounts="$XDG_STATE_HOME/omarchy/agents/accounts"
@@ -83,7 +91,9 @@ pass "the existing login is listed as the primary account"
 OMARCHY_TEST_LOGIN_UUID=u-work OMARCHY_TEST_LOGIN_EMAIL=work@example.com \
   omarchy-agent-account-add claude Work </dev/null >"$test_tmp/add-output"
 grep -q "Added Work (work@example.com)" "$test_tmp/add-output" || fail "adding an account reports who signed in" "$(cat "$test_tmp/add-output")"
-grep -q "Switch .* to the account you're adding first" "$test_tmp/add-output" || fail "adding an account warns about the browser's signed-in account"
+grep -q "private window that opens" "$test_tmp/add-output" || fail "adding an account says to sign in within the private window"
+[[ $(head -1 "$OMARCHY_TEST_BROWSER_LOG") == "--private https://claude.com/oauth/authorize" ]] ||
+  fail "a Claude login opens in a private window" "$(cat "$OMARCHY_TEST_BROWSER_LOG")"
 pass "adding an account signs in through the CLI's own login"
 
 work="$accounts/claude/work"
@@ -134,6 +144,8 @@ OMARCHY_TEST_LOGIN_UUID=acct-2 OMARCHY_TEST_LOGIN_EMAIL=side@example.com \
 [[ $(omarchy-agent-account-list codex --json | jq -c '.[0].accounts[1] | {id, email, plan}') == '{"id":"side","email":"side@example.com","plan":"Pro"}' ]] ||
   fail "a Codex account reads its identity from the login's token claims"
 [[ $(readlink "$accounts/codex/side/sessions") == "$HOME/.codex/sessions" ]] || fail "a Codex account shares sessions with the primary"
+grep -qx -- "--private https://auth.openai.com/oauth/authorize" "$OMARCHY_TEST_BROWSER_LOG" ||
+  fail "a Codex login opens in a private window" "$(cat "$OMARCHY_TEST_BROWSER_LOG")"
 pass "Codex accounts are added the same way"
 
 # ---------------------------------------------------------------------- routing

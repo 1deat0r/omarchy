@@ -317,7 +317,7 @@ def register(provider: str, label: str, pending: Path) -> dict[str, Any]:
         shutil.rmtree(pending, ignore_errors=True)
         raise AccountError(
           f"That's {account['label']} ({found['email'] or 'already added'}). "
-          "Sign the browser into the other account and try again."
+          "Try again, and sign in as the other account in the private window."
         )
 
     label = label.strip() or found["email"].split("@")[0] or "Account"
