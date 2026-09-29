@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # omarchy:summary=Choose which Claude or Codex account new sessions use
-# omarchy:args=[claude|codex] [account|primary|next]
-# omarchy:examples=omarchy agent account use work | omarchy agent account use primary | omarchy agent account use codex next
+# omarchy:args=[claude|codex] [account|next]
+# omarchy:examples=omarchy agent account use work | omarchy agent account use main | omarchy agent account use codex next
 
 set -uo pipefail
 
@@ -17,7 +17,7 @@ case "${1:-}" in
 claude) name="Claude" ;;
 codex) name="Codex" ;;
 *)
-  echo "Usage: omarchy-agent-account-use [claude|codex] [account|primary|next]" >&2
+  echo "Usage: omarchy-agent-account-use [claude|codex] [account|next]" >&2
   exit 1
   ;;
 esac

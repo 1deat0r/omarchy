@@ -175,8 +175,8 @@ pass "next cycles through accounts"
 # With Claude as the default agent, the provider can be left out.
 OMARCHY_TEST_DEFAULT_AGENT=claude omarchy-agent-account-use work >/dev/null
 [[ $(omarchy-agent-account-home claude) == "$work" ]] || fail "use without a provider picks the default agent's account"
-OMARCHY_TEST_DEFAULT_AGENT=claude omarchy-agent-account-use primary >/dev/null
-[[ -z $(omarchy-agent-account-home claude) ]] || fail "primary names the primary account"
+OMARCHY_TEST_DEFAULT_AGENT=claude omarchy-agent-account-use main >/dev/null
+[[ -z $(omarchy-agent-account-home claude) ]] || fail "use without a provider switches back to Main"
 OMARCHY_TEST_DEFAULT_AGENT=codex omarchy-agent-account-use main >/dev/null
 [[ -z $(omarchy-agent-account-home codex) ]] || fail "the default agent decides which provider a short use means"
 if OMARCHY_TEST_DEFAULT_AGENT=pi omarchy-agent-account-use work >/dev/null 2>&1; then
