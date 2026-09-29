@@ -45,8 +45,8 @@ PROVIDERS = {
   },
   "codex": {
     "name": "Codex",
-    "shared_dirs": ["sessions", "archived_sessions", "prompts", "skills", "rules"],
-    "shared_files": ["config.toml", "AGENTS.md", "history.jsonl"],
+    "shared_dirs": ["sessions", "archived_sessions", "prompts", "skills", "rules", "plugins"],
+    "shared_files": ["config.toml", "AGENTS.md", "history.jsonl", "hooks.json"],
     "carried_keys": [],
   },
 }
