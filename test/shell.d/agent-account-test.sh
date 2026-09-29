@@ -172,9 +172,21 @@ omarchy-agent-account-use claude next >/dev/null
 [[ -z $(omarchy-agent-account-home claude) ]] || fail "next cycles back to the primary"
 pass "next cycles through accounts"
 
+# With Claude as the default agent, the provider can be left out.
+OMARCHY_TEST_DEFAULT_AGENT=claude omarchy-agent-account-use work >/dev/null
+[[ $(omarchy-agent-account-home claude) == "$work" ]] || fail "use without a provider picks the default agent's account"
+OMARCHY_TEST_DEFAULT_AGENT=claude omarchy-agent-account-use primary >/dev/null
+[[ -z $(omarchy-agent-account-home claude) ]] || fail "primary names the primary account"
+OMARCHY_TEST_DEFAULT_AGENT=codex omarchy-agent-account-use main >/dev/null
+[[ -z $(omarchy-agent-account-home codex) ]] || fail "the default agent decides which provider a short use means"
+if OMARCHY_TEST_DEFAULT_AGENT=pi omarchy-agent-account-use work >/dev/null 2>&1; then
+  fail "a default agent with no accounts still needs the provider named"
+fi
+pass "the provider defaults to your default agent"
+
 # ------------------------------------------------------------ mode and remove
 
-omarchy-agent-account-mode claude auto 90 >/dev/null
+OMARCHY_TEST_DEFAULT_AGENT=claude omarchy-agent-account-mode auto 90 >/dev/null
 [[ $(jq -c '{switch, threshold}' "$accounts/claude.json") == '{"switch":"auto","threshold":90}' ]] || fail "mode sets switching and threshold"
 if omarchy-agent-account-mode claude sometimes >/dev/null 2>&1; then
   fail "mode refuses an unknown switch mode"

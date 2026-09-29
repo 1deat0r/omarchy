@@ -53,8 +53,10 @@ PROVIDERS = {
 
 DEFAULT_THRESHOLD = 95
 # Ids an account can't take because something else already answers to them:
-# `use <provider> next` cycles, and the menu's Add Account row is `.add`.
-RESERVED_IDS = {"next", "add"}
+# `use next` cycles, `primary` names the primary account, a provider name is
+# read as the provider when it comes first, and the menu's Add Account row is
+# `.add`.
+RESERVED_IDS = {"next", "add", "primary", "claude", "codex"}
 SWITCH_MODES = ("manual", "auto")
 
 
@@ -238,7 +240,7 @@ class Locked:
 
 def find(registry: dict[str, Any], account_id: str) -> dict[str, Any] | None:
   for account in registry["accounts"]:
-    if account.get("id") == account_id:
+    if account.get("id") == account_id or (account_id == "primary" and account.get("primary")):
       return account
   return None
 

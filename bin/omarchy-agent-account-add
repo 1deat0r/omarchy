@@ -1,16 +1,23 @@
 #!/bin/bash
 
 # omarchy:summary=Sign in to another Claude or Codex subscription
-# omarchy:args=<claude|codex> [label]
-# omarchy:examples=omarchy agent account add claude Work | omarchy agent account add codex
+# omarchy:args=[claude|codex] [label]
+# omarchy:examples=omarchy agent account add Work | omarchy agent account add codex Side
 
 set -uo pipefail
+
+# The provider can be left out when it's your default agent:
+# `omarchy agent account use work`.
+if [[ ${1:-} != "claude" && ${1:-} != "codex" ]]; then
+  default=$(omarchy-default-agent)
+  [[ $default == "claude" || $default == "codex" ]] && set -- "$default" "$@"
+fi
 
 case "${1:-}" in
 claude) provider="claude"; name="Claude"; site="claude.ai" ;;
 codex) provider="codex"; name="Codex"; site="chatgpt.com" ;;
 *)
-  echo "Usage: omarchy-agent-account-add <claude|codex> [label]" >&2
+  echo "Usage: omarchy-agent-account-add [claude|codex] [label]" >&2
   exit 1
   ;;
 esac
