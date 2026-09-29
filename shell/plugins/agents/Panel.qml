@@ -37,6 +37,14 @@ Panel {
   property double nowMs: Date.now()
 
   readonly property var limits: limitWindows(provider)
+  // Several subscriptions for this provider: each one's limits get a card, and
+  // one of them is where new sessions go.
+  readonly property var accounts: provider && Array.isArray(provider.accounts) ? provider.accounts : []
+  readonly property bool multiAccount: accounts.length > 1
+  readonly property bool accountsSupported: !!provider && (provider.providerId === "claude" || provider.providerId === "codex")
+  // The account card the keyboard has picked. Picking only looks; Enter on a
+  // picked card is what moves new sessions, so reading never switches.
+  property int accountCursor: -1
   readonly property var models: modelRows(provider)
   readonly property var headline: bindingWindow(provider)
   readonly property var balance: provider ? (provider.balance || null) : null
@@ -57,6 +65,45 @@ Panel {
 
   function refreshNow() {
     usage.refreshAll(true)
+  }
+
+  function useAccount(account) {
+    if (!provider || !account || account.active) return
+    Util.execArgv(["omarchy-agent-account-use", provider.providerId, String(account.id)])
+  }
+
+  function addAccount() {
+    if (!accountsSupported) return
+    Util.execArgv(["omarchy-launch-floating-terminal-with-presentation", "omarchy-agent-account-add " + provider.providerId])
+    root.close()
+  }
+
+  function toggleSwitchMode() {
+    if (!multiAccount) return
+    var mode = provider.accountSwitch && provider.accountSwitch.mode === "auto" ? "manual" : "auto"
+    Util.execArgv(["bash", "-c", 'omarchy-agent-account-mode "$1" "$2" >/dev/null && omarchy-agent-usage-update --limits-only "$1"',
+                   "omarchy-agent-account-mode", provider.providerId, mode])
+  }
+
+  function activateSelection() {
+    if (multiAccount && accountCursor >= 0 && accountCursor < accounts.length && !accounts[accountCursor].active)
+      useAccount(accounts[accountCursor])
+    else
+      refreshNow()
+  }
+
+  function accountDetail(account) {
+    var parts = []
+    if (String(account.email || "") !== "") parts.push(account.email)
+    if (String(account.plan || "") !== "") parts.push(account.plan)
+    if (account.stale === true)
+      parts.push(String(account.usageStatusText || "") !== "" ? account.usageStatusText + " · last known" : "Last known")
+    return parts.join(" · ")
+  }
+
+  function switchHeader(p) {
+    var s = p && p.accountSwitch ? p.accountSwitch : { mode: "manual", threshold: 95 }
+    return "ACCOUNTS · " + (s.mode === "auto" ? "SWITCHES" : "NOTIFIES") + " AT " + Number(s.threshold || 95) + "%"
   }
 
   function launchAgent() {
@@ -301,9 +348,13 @@ Panel {
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
 
-  onProviderIndexChanged: if (panelFlick) panelFlick.contentY = 0
+  onProviderIndexChanged: {
+    accountCursor = -1
+    if (panelFlick) panelFlick.contentY = 0
+  }
   onOpenedChanged: if (opened) {
     cursorActive = false
+    accountCursor = -1
     nowMs = Date.now()
     if (panelFlick) panelFlick.contentY = 0
     usage.refreshLimits()
@@ -373,10 +424,15 @@ Panel {
           panelFlick.contentY = root.clamp(panelFlick.contentY + dy * Style.space(56), 0,
                                            Math.max(0, panelFlick.contentHeight - panelFlick.height))
       }
-      onActivateRequested: root.refreshNow()
+      onActivateRequested: root.activateSelection()
       onCloseRequested: root.close()
       onTabRequested: function(direction) { root.switchPanel(direction) }
-      onTextKey: function(t) { if (t === "r" || t === "R") root.refreshNow() }
+      onTextKey: function(t) {
+        if (t === "r" || t === "R") root.refreshNow()
+        else if (t === "a" || t === "A") root.addAccount()
+        else if (t === "m" || t === "M") root.toggleSwitchMode()
+        else if (t >= "1" && t <= "9" && Number(t) <= root.accounts.length) root.accountCursor = Number(t) - 1
+      }
 
       Flickable {
         id: panelFlick
@@ -521,7 +577,7 @@ Panel {
 
           // ---------- Balance / limits ----------
           PanelSeparator {
-            visible: balanceSection.visible || limitsSection.visible
+            visible: balanceSection.visible || limitsSection.visible || accountsSection.visible
             foreground: root.foreground
           }
 
@@ -590,7 +646,7 @@ Panel {
 
           Column {
             id: limitsSection
-            visible: root.limits.length > 0
+            visible: root.limits.length > 0 && !root.multiAccount
             width: parent.width
             spacing: Style.space(10)
 
@@ -608,6 +664,64 @@ Panel {
                 width: limitsSection.width
                 window: modelData
               }
+            }
+          }
+
+          // ---------- Accounts ----------
+          Column {
+            id: accountsSection
+            visible: root.multiAccount
+            width: parent.width
+            spacing: Style.space(10)
+
+            PanelSectionHeader {
+              text: root.switchHeader(root.provider)
+              foreground: root.foreground
+              fontFamily: root.fontFamily
+            }
+
+            Repeater {
+              model: root.accounts
+
+              AccountCard {
+                required property var modelData
+                required property int index
+                width: accountsSection.width
+                account: modelData
+                number: index + 1
+                picked: index === root.accountCursor
+              }
+            }
+          }
+
+          Row {
+            visible: root.accountsSupported
+            width: parent.width
+            spacing: Style.spacing.md
+
+            readonly property real cellWidth: root.multiAccount ? (width - spacing) / 2 : width
+
+            Button {
+              width: parent.cellWidth
+              text: "Add account  a"
+              bordered: true
+              foreground: root.foreground
+              fontFamily: root.fontFamily
+              fontSize: Style.font.bodySmall
+              verticalPadding: Style.spacing.controlPaddingY
+              onClicked: root.addAccount()
+            }
+
+            Button {
+              visible: root.multiAccount
+              width: parent.cellWidth
+              text: (root.provider && root.provider.accountSwitch && root.provider.accountSwitch.mode === "auto" ? "Auto switch: on" : "Auto switch: off") + "  m"
+              bordered: true
+              foreground: root.foreground
+              fontFamily: root.fontFamily
+              fontSize: Style.font.bodySmall
+              verticalPadding: Style.spacing.controlPaddingY
+              onClicked: root.toggleSwitchMode()
             }
           }
 
@@ -695,6 +809,110 @@ Panel {
             horizontalAlignment: Text.AlignHCenter
             elide: Text.ElideRight
           }
+        }
+      }
+    }
+  }
+
+  // One subscription account: who it is, whether new sessions use it, and its
+  // limit windows. The keyboard picks a card with its number and Enter makes
+  // it active; the mouse gets a Use button, since a click on a meter should
+  // only ever read it.
+  component AccountCard: BorderSurface {
+    id: accountCard
+    property var account: ({})
+    property int number: 0
+    property bool picked: false
+
+    readonly property bool isActive: account.active === true
+    readonly property var windows: root.limitWindows({ limits: account.limits || [] })
+
+    implicitHeight: accountBody.implicitHeight + Style.space(12) * 2
+    radius: Style.cornerRadius
+    color: isActive ? root.alpha(Color.accent, 0.08) : "transparent"
+    borderSpec: Border.flat(picked ? Color.accent : root.alpha(root.foreground, isActive ? 0.35 : 0.15), 1)
+
+    Column {
+      id: accountBody
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: parent.top
+      anchors.margins: Style.space(12)
+      spacing: Style.space(8)
+
+      Item {
+        width: parent.width
+        implicitHeight: Math.max(accountLabel.implicitHeight, accountAction.implicitHeight)
+
+        Text {
+          id: accountLabel
+          textFormat: Text.PlainText
+          anchors.left: parent.left
+          anchors.right: accountAction.left
+          anchors.rightMargin: Style.spacing.sm
+          anchors.verticalCenter: parent.verticalCenter
+          text: accountCard.number + "  " + String(accountCard.account.label || accountCard.account.id || "")
+          color: root.foreground
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.body
+          font.bold: accountCard.isActive
+          elide: Text.ElideRight
+        }
+
+        Item {
+          id: accountAction
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          implicitWidth: accountCard.isActive ? activeBadge.implicitWidth : useButton.implicitWidth
+          implicitHeight: accountCard.isActive ? activeBadge.implicitHeight : useButton.implicitHeight
+
+          Text {
+            id: activeBadge
+            visible: accountCard.isActive
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            text: "ACTIVE"
+            color: Color.accent
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+            font.bold: true
+          }
+
+          Button {
+            id: useButton
+            visible: !accountCard.isActive
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            text: accountCard.picked ? "Use  ⏎" : "Use"
+            bordered: true
+            hasCursor: accountCard.picked
+            foreground: root.foreground
+            fontFamily: root.fontFamily
+            fontSize: Style.font.caption
+            verticalPadding: Style.space(2)
+            onClicked: root.useAccount(accountCard.account)
+          }
+        }
+      }
+
+      Text {
+        textFormat: Text.PlainText
+        visible: text !== ""
+        width: parent.width
+        text: root.accountDetail(accountCard.account)
+        color: accountCard.account.stale === true ? root.urgent : root.dim
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        elide: Text.ElideRight
+      }
+
+      Repeater {
+        model: accountCard.windows
+
+        LimitRow {
+          required property var modelData
+          width: accountBody.width
+          window: modelData
         }
       }
     }

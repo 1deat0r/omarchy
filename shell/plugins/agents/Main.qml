@@ -117,12 +117,28 @@ Item {
   property int refreshIntervalSec: Math.max(30, Number(setting("refreshIntervalSec", 900)))
   property string pendingUpdateKind: ""
 
+  // A fifteen-minute interval can't catch an account crossing its switch
+  // threshold, so while any provider with several accounts has its active one
+  // at 80% or more, the limits are checked every minute. Those runs reuse the
+  // transcript scans; only the limits probes are new.
+  readonly property bool nearLimit: {
+    var rev = dataRevision
+    for (var i = 0; i < agents.length; i++) {
+      var record = agents[i] ? agents[i].record : null
+      if (!record || !Array.isArray(record.accounts) || record.accounts.length < 2) continue
+      var limits = Array.isArray(record.limits) ? record.limits : []
+      for (var j = 0; j < limits.length; j++)
+        if (Number(limits[j] && limits[j].percent) >= 0.8) return true
+    }
+    return false
+  }
+
   Timer {
-    interval: root.refreshIntervalSec * 1000
+    interval: root.nearLimit ? Math.min(60, root.refreshIntervalSec) * 1000 : root.refreshIntervalSec * 1000
     running: true
     repeat: true
     triggeredOnStart: true
-    onTriggered: root.runUpdate("normal")
+    onTriggered: root.runUpdate(root.nearLimit ? "limits" : "normal")
   }
 
   Process {
@@ -255,6 +271,9 @@ Item {
       // across devices.
       limits: Array.isArray(record.limits) ? record.limits : [],
       tierLabel: String(record.tierLabel || ""),
+      // Every subscription account's own limits, once there's more than one.
+      accounts: Array.isArray(record.accounts) ? record.accounts : [],
+      accountSwitch: record.accountSwitch || ({ mode: "manual", threshold: 95 }),
       balance: balanceValue(record.balance),
 
       todayPrompts: synced ? numberValue(stats.todayPrompts) : numberValue(record.todayPrompts),

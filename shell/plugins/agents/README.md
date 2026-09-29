@@ -15,6 +15,13 @@ cross-device aggregation); `Agent.qml` is the per-record file watcher.
   It appears only when more than one agent is enabled.
 - **Limits** — the percentage of each allowance used, a matching meter, and
   the time until the session or weekly window resets.
+- **Accounts** — with more than one Claude or Codex subscription account
+  (see `omarchy agent account`), the limits become one card per account:
+  label, email, plan, its own meters, and an _Active_ badge on the account
+  new sessions start as. A parked account whose sign-in lapsed shows its last
+  known numbers in the urgent color. The header says whether reaching the
+  threshold switches or only notifies. An _Add account_ button sits below the
+  limits for Claude and Codex either way.
 - **Balance** — prepaid agents report a credit ledger instead of limits:
   remaining credit, a fuel-gauge meter that drains toward empty, and
   funded-versus-spent detail.
@@ -55,6 +62,19 @@ light surfaces — and the bar glyph stands in when there is none.
 | `claude` | Anthropic's OAuth usage endpoint (5-hour session + 7-day weekly) | `~/.claude/projects` transcripts, opencode sessions on an Anthropic provider, plus `stats-cache.json` and `history.jsonl` as fallback |
 | `codex` | The Codex app-server RPC | native Codex CLI session files (plus pi and opencode sessions) |
 | `fireworks` | Estimated prepaid balance: configured funding minus rated account costs | Fireworks billing API, grouped by day and model for the last 30 days |
+
+When `~/.local/state/omarchy/agents/accounts/<claude|codex>.json` registers
+more than one account, the `claude` and `codex` records also carry
+`accounts: [{ id, label, email, plan, active, limits, stale, usageStatusText,
+authHelpText }]`, each account probed with its own sign-in (Claude caches each
+account's limits separately; Codex runs one app-server per account home), and
+`accountSwitch: { mode, threshold }`. The record's top-level `limits` and
+`tierLabel` keep describing the active account, and local stats stay one set,
+since every account shares the primary home's history. After each run,
+`omarchy-agent-usage-update` hands the fresh limits to
+`omarchy-agent-account-state autoswitch`, which notifies or switches when the
+active account crosses its threshold, and re-collects the record if the active
+account changed.
 
 Claude limits need a signed-in CLI; without credentials the panel says so and
 falls back to local stats only. A non-default Claude directory is honored via
@@ -97,6 +117,10 @@ only adds the meter and the spent-of-funded line under the real figure.
 - Bar icon: left = panel, right = launch agent, middle = next subscription.
 - Panel: `h`/`l` switch subscription, `j`/`k` scroll, `r` or Enter refresh,
   Tab moves to the neighboring bar panel, Esc closes.
+- Accounts: `1`–`9` pick an account card and Enter makes it active (picking
+  alone never switches), `a` adds an account, `m` toggles automatic
+  switching. While a provider with several accounts has its active one at 80%
+  or more of any window, the limits refresh every minute.
 - IPC: `omarchy-shell omarchy.agents <open|close|toggle|refresh|next>`.
 
 ## Settings
