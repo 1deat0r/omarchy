@@ -91,6 +91,29 @@ pass "the record's own limits describe the active account"
   fail "each account keeps its own limits cache"
 pass "each account keeps its own limits cache"
 
+# Once every window a lapsed account last saw has reset, it has its whole
+# allowance back: that reads as 0%, not as nothing known.
+past_at=$(python3 -c 'import datetime as dt; print((dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=5)).isoformat())')
+jq -nc --arg past "$past_at" '{fetchedAtMs: 1, limits: [{label: "Session (5-hour)", percent: 0.99, resetsAt: $past}]}' \
+  >"$XDG_CACHE_HOME/omarchy/agent-usage/claude-limits-old.json"
+rested=$(COLLECTOR="$ROOT/bin/omarchy-agent-usage-claude" python3 - <<'PY'
+import importlib.machinery, importlib.util, io, json, os, sys
+
+loader = importlib.machinery.SourceFileLoader("collector", os.environ["COLLECTOR"])
+spec = importlib.util.spec_from_loader(loader.name, loader)
+collector = importlib.util.module_from_spec(spec)
+loader.exec_module(collector)
+collector.urllib.request.urlopen = lambda request, timeout=None: io.BytesIO(b'{"five_hour": {"utilization": 30.0}}')
+collector.scan_pi_usage = lambda age: None
+collector.scan_opencode_usage = lambda age: None
+sys.argv = ["omarchy-agent-usage-claude", "--force"]
+collector.main()
+PY
+)
+[[ $(jq -c '.accounts[2] | {stale, limits: [.limits[] | {label, empty: (.percent == 0)}]}' <<<"$rested") == '{"stale":true,"limits":[{"label":"Session (5-hour)","empty":true}]}' ]] ||
+  fail "a lapsed account whose windows all reset reads as untouched" "$rested"
+pass "a lapsed account whose windows all reset reads as untouched"
+
 # A registry with one account changes nothing about the record.
 jq '.accounts |= [.[0]] | .active = "main"' "$accounts/claude.json" >"$test_tmp/one.json"
 mv "$test_tmp/one.json" "$accounts/claude.json"
@@ -146,3 +169,8 @@ codex_record=$(PATH="$test_tmp/bin:$PATH" "$ROOT/bin/omarchy-agent-usage-codex" 
   fail "Codex record asks each account's own app-server" "$codex_record"
 [[ $(jq '.limits[0].percent' <<<"$codex_record") == 0.4 ]] || fail "Codex record's own limits describe the active account" "$codex_record"
 pass "Codex record lists every registered account"
+
+inherited=$(CODEX_HOME="$accounts/codex/side" PATH="$test_tmp/bin:$PATH" "$ROOT/bin/omarchy-agent-usage-codex" --force)
+[[ $(jq -c '[.accounts[] | .limits[0].percent]' <<<"$inherited") == '[0.4,0.91]' ]] ||
+  fail "Main's Codex limits come from ~/.codex whatever CODEX_HOME says" "$inherited"
+pass "Main's Codex limits come from ~/.codex whatever CODEX_HOME says"

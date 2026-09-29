@@ -599,7 +599,9 @@ def registered_accounts():
 # Each account's app-server runs in that account's home, so it answers for that
 # login and refreshes that login's tokens there.
 def account_limits(account):
-  rpc = fetch_codex_rpc(account.get("home") or None)
+  # The primary is ~/.codex by definition, not whatever CODEX_HOME this run
+  # happened to inherit — that would report another account's limits as Main's.
+  rpc = fetch_codex_rpc(account.get("home") or (Path.home() / ".codex"))
   return {
     "id": account["id"],
     "label": str(account.get("label") or account["id"]),

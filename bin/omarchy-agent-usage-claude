@@ -878,11 +878,31 @@ def registered_accounts() -> list[dict[str, Any]]:
   return accounts
 
 
+# A parked account whose sign-in lapsed can't be probed, and once every window
+# it last saw has reset, the cache has nothing current to offer. That is not
+# "unknown" — a reset window is an untouched allowance, and switching needs to
+# know this account is the one with the most room. Each window it last saw
+# comes back at 0%.
+def replenished_limits(cache_name: str) -> list[dict[str, Any]]:
+  cached = read_fresh_json(cache_root() / cache_name, float("inf")) or {}
+  entries = cached.get("limits")
+  if not isinstance(entries, list):
+    return []
+  now = dt.datetime.now(dt.timezone.utc)
+  return [
+    dict(entry, percent=0.0, resetsAt="")
+    for entry in entries
+    if isinstance(entry, dict) and not limit_window_open(entry, now)
+  ]
+
+
 def account_limits(account: dict[str, Any], force: bool) -> dict[str, Any]:
   home = expand_path(account["home"]) if account.get("home") else expand_path("~/.claude")
   access_token, expires_at_ms, plan = oauth_login(home)
   cache_name = "claude-limits.json" if account.get("primary") else f"claude-limits-{account['id']}.json"
   limits = collect_limits(access_token, expires_at_ms, force, cache_name)
+  if not limits["live"] and not limits["limits"]:
+    limits["limits"] = replenished_limits(cache_name)
   return {
     "id": account["id"],
     "label": str(account.get("label") or account["id"]),

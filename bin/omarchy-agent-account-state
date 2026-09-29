@@ -303,6 +303,12 @@ def register(provider: str, label: str, pending: Path) -> dict[str, Any]:
     raise AccountError("The login didn't finish, so no account was added.")
 
   with Locked(provider) as registry:
+    # Each home is asked who it is now, not trusted from when it was added: a
+    # `claude auth login` run by hand in ~/.claude changes the primary.
+    for account in registry["accounts"]:
+      current = identity(provider, account_home(provider, account))
+      if current["accountId"]:
+        account.update(current)
     for account in registry["accounts"]:
       if account.get("accountId") == found["accountId"]:
         shutil.rmtree(pending, ignore_errors=True)

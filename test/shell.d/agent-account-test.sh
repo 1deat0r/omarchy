@@ -103,6 +103,19 @@ grep -q "That's Work" "$test_tmp/dup-output" || fail "a duplicate login names th
 [[ -z $(ls -A "$accounts/claude/.pending") ]] || fail "a duplicate login leaves no scratch home behind"
 pass "adding an account that's already there is refused"
 
+# Main was signed in to another account by hand since the registry was made;
+# adding that login again is still the same subscription.
+jq '.oauthAccount.accountUuid = "u-relogged"' "$HOME/.claude.json" >"$test_tmp/relogged.json"
+cp "$HOME/.claude.json" "$test_tmp/original.json"
+mv "$test_tmp/relogged.json" "$HOME/.claude.json"
+if OMARCHY_TEST_LOGIN_UUID=u-relogged OMARCHY_TEST_LOGIN_EMAIL=me@example.com \
+  omarchy-agent-account-add claude Twin </dev/null >"$test_tmp/twin-output" 2>&1; then
+  fail "a login matching Main's current sign-in is refused"
+fi
+grep -q "That's Main" "$test_tmp/twin-output" || fail "a login matching Main's current sign-in names Main" "$(cat "$test_tmp/twin-output")"
+mv "$test_tmp/original.json" "$HOME/.claude.json"
+pass "duplicates are judged by who each home is signed in as now"
+
 if OMARCHY_TEST_LOGIN_UUID="" omarchy-agent-account-add claude Nope </dev/null >/dev/null 2>&1; then
   fail "an abandoned login adds nothing"
 fi
