@@ -899,7 +899,10 @@ def replenished_limits(cache_name: str) -> list[dict[str, Any]]:
 def account_limits(account: dict[str, Any], force: bool) -> dict[str, Any]:
   home = expand_path(account["home"]) if account.get("home") else expand_path("~/.claude")
   access_token, expires_at_ms, plan = oauth_login(home)
-  cache_name = "claude-limits.json" if account.get("primary") else f"claude-limits-{account['id']}.json"
+  # Keyed by the subscription, not the label: forget "Work" and add a different
+  # "Work", and the new one must never fall back on the old one's allowance.
+  key = re.sub(r"[^A-Za-z0-9_-]", "", str(account.get("accountId") or "")) or account["id"]
+  cache_name = "claude-limits.json" if account.get("primary") else f"claude-limits-{key}.json"
   limits = collect_limits(access_token, expires_at_ms, force, cache_name)
   if not limits["live"] and not limits["limits"]:
     limits["limits"] = replenished_limits(cache_name)

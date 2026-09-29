@@ -114,6 +114,20 @@ autoswitch >/dev/null
 [[ ! -s $notifications ]] || fail "exhaustion is said once"
 pass "all accounts over the threshold is said once"
 
+# Work's session is nearly empty and resets soon, but its full weekly window
+# is what holds it over the threshold, so that reset is when it frees up.
+registry main auto
+jq -nc --arg later "$later" --arg soon "$soon" --arg week "$(python3 -c 'import datetime as dt; print((dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=6)).isoformat())')" '{
+  id: "claude",
+  accounts: [
+    {id: "main", limits: [{label: "Session (5-hour)", percent: 0.97, resetsAt: $later}]},
+    {id: "work", limits: [{label: "Session (5-hour)", percent: 0.10, resetsAt: $soon}, {label: "Weekly (7-day)", percent: 1.0, resetsAt: $week}]}
+  ]
+}' >"$usage/claude.json"
+autoswitch >/dev/null
+grep -q "Main resets in 3h 5[89]m." "$notifications" || fail "exhaustion ignores a reset that doesn't free the account" "$(cat "$notifications")"
+pass "exhaustion names when an account actually frees up"
+
 record 0.20 "$later" 0.98 "$soon"
 autoswitch >/dev/null
 [[ $(jq -r .alert "$accounts/claude.json") == "" ]] || fail "dropping back under the threshold re-arms the alert"

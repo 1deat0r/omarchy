@@ -41,7 +41,7 @@ cat >"$accounts/claude.json" <<JSON
   "threshold": 95,
   "accounts": [
     {"id": "main", "label": "Main", "home": "", "primary": true, "email": "me@example.com"},
-    {"id": "work", "label": "Work", "home": "$accounts/claude/work", "primary": false, "email": "work@example.com"},
+    {"id": "work", "label": "Work", "home": "$accounts/claude/work", "primary": false, "email": "work@example.com", "accountId": "u-work"},
     {"id": "old", "label": "Old", "home": "$accounts/claude/old", "primary": false, "email": "old@example.com"}
   ]
 }
@@ -87,8 +87,8 @@ pass "a lapsed account keeps its last-known limits and says why"
   fail "the record's own limits describe the active account" "$claude_record"
 pass "the record's own limits describe the active account"
 
-[[ -f $XDG_CACHE_HOME/omarchy/agent-usage/claude-limits.json && -f $XDG_CACHE_HOME/omarchy/agent-usage/claude-limits-work.json ]] ||
-  fail "each account keeps its own limits cache"
+[[ -f $XDG_CACHE_HOME/omarchy/agent-usage/claude-limits.json && -f $XDG_CACHE_HOME/omarchy/agent-usage/claude-limits-u-work.json ]] ||
+  fail "each account keeps its own limits cache, keyed by subscription"
 pass "each account keeps its own limits cache"
 
 # Once every window a lapsed account last saw has reset, it has its whole

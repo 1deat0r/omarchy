@@ -424,6 +424,27 @@ def next_reset(limits: Any, now: dt.datetime) -> dt.datetime | None:
   return min(times) if times else None
 
 
+# When an account over the threshold drops back under it: once every window
+# holding it there has reset, which is the latest of those resets. A 10%
+# session resetting in an hour doesn't help an account whose weekly window is
+# full for six more days. None when a blocking window never says.
+def available_at(limits: Any, threshold: float, now: dt.datetime) -> dt.datetime | None:
+  latest = None
+  for limit in limits if isinstance(limits, list) else []:
+    if not isinstance(limit, dict) or not isinstance(limit.get("percent"), (int, float)):
+      continue
+    if float(limit["percent"]) * 100 < threshold or not window_open(limit, now):
+      continue
+    try:
+      when = dt.datetime.fromisoformat(str(limit.get("resetsAt") or "").replace("Z", "+00:00"))
+    except Exception:
+      return None
+    if when.tzinfo is None:
+      when = when.replace(tzinfo=dt.timezone.utc)
+    latest = when if latest is None or when > latest else latest
+  return latest
+
+
 def duration(delta: dt.timedelta) -> str:
   minutes = max(1, int(delta.total_seconds() // 60))
   hours, minutes = divmod(minutes, 60)
@@ -473,7 +494,7 @@ def decide(registry: dict[str, Any], usage: dict[str, Any], now: dt.datetime) ->
     return None
   soonest = None
   for account in registry["accounts"]:
-    reset = next_reset(usage.get(account["id"]), now)
+    reset = available_at(usage.get(account["id"]), threshold, now)
     if reset and (soonest is None or reset < soonest[0]):
       soonest = (reset, account)
   return {"action": "exhausted", "alert": alert, "from": current, "fromPeak": current_peak, "soonest": soonest}
