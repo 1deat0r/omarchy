@@ -184,6 +184,24 @@ if OMARCHY_TEST_DEFAULT_AGENT=pi omarchy-agent-account-use work >/dev/null 2>&1;
 fi
 pass "the provider defaults to your default agent"
 
+# ----------------------------------------------------------------------- rename
+
+omarchy-agent-account-use claude work >/dev/null
+omarchy-agent-account-rename claude work Day job >/dev/null
+[[ $(omarchy-agent-account-list claude --json | jq -c '.[0] | {active, renamed: (.accounts[] | select(.id == "day-job") | .label)}') == '{"active":"day-job","renamed":"Day job"}' ]] ||
+  fail "renaming changes the label and the id it answers to, and the active account follows"
+[[ $(omarchy-agent-account-home claude) == "$work" ]] || fail "renaming leaves the account's home where running sessions expect it"
+OMARCHY_TEST_DEFAULT_AGENT=claude omarchy-agent-account-rename day-job Work >/dev/null
+[[ $(omarchy-agent-account-home claude) == "$work" ]] || fail "a renamed account can be renamed back"
+omarchy-agent-account-rename claude main Personal >/dev/null
+[[ $(omarchy-agent-account-list claude --json | jq -r '.[0].accounts[] | select(.primary) | "\(.id) \(.home)"') == "personal $HOME/.claude" ]] ||
+  fail "the primary account can be renamed and keeps ~/.claude"
+omarchy-agent-account-rename claude personal Main >/dev/null
+if omarchy-agent-account-rename claude work "" >/dev/null 2>&1; then
+  fail "an account can't be renamed to nothing"
+fi
+pass "rename relabels an account without moving it"
+
 # ------------------------------------------------------------ mode and remove
 
 OMARCHY_TEST_DEFAULT_AGENT=claude omarchy-agent-account-mode auto 90 >/dev/null

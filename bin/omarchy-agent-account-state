@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # omarchy:summary=Read and change the registry of Claude and Codex subscription accounts
-# omarchy:args=<registry|home|homes|list|begin|register|use|remove|mode|link|autoswitch> [provider] [args...]
+# omarchy:args=<registry|home|homes|list|begin|register|use|rename|remove|mode|link|autoswitch> [provider] [args...]
 # omarchy:hidden=true
 """The account registry behind `omarchy agent account`.
 
@@ -322,10 +322,7 @@ def register(provider: str, label: str, pending: Path) -> dict[str, Any]:
         )
 
     label = label.strip() or found["email"].split("@")[0] or "Account"
-    account_id = slug(label) or "account"
-    base, n = account_id, 2
-    while find(registry, account_id) or account_id in RESERVED_IDS:
-      account_id, n = f"{base}-{n}", n + 1
+    account_id = unique_id(provider, registry, label)
 
     home = accounts_root() / provider / account_id
     pending.rename(home)
@@ -334,6 +331,41 @@ def register(provider: str, label: str, pending: Path) -> dict[str, Any]:
     entry.update(found)
     registry["accounts"].append(entry)
     return entry
+
+
+# The id an account answers to, from its label. It can't clash with another
+# account, a routing keyword, or a home left under that name by an account
+# that has since been renamed.
+def unique_id(provider: str, registry: dict[str, Any], label: str, keep: dict[str, Any] | None = None) -> str:
+  base = slug(label) or "account"
+  account_id, n = base, 2
+  while True:
+    taken = find(registry, account_id)
+    if account_id not in RESERVED_IDS and (taken is None or taken is keep):
+      if keep is not None or not (accounts_root() / provider / account_id).exists():
+        return account_id
+    account_id, n = f"{base}-{n}", n + 1
+
+
+# A new label, and the id that follows from it. The home stays where it is:
+# sessions already running in it hold that path.
+def rename(provider: str, target: str, label: str) -> dict[str, Any]:
+  label = label.strip()
+  if not label:
+    raise AccountError("Give the account a name")
+  with Locked(provider) as registry:
+    account = find(registry, target)
+    if not account:
+      raise AccountError(f"No {PROVIDERS[provider]['name']} account named {target}")
+    new_id = unique_id(provider, registry, label, keep=account)
+    if not account.get("primary") and not account.get("home"):
+      account["home"] = str(account_home(provider, account))
+    if registry["active"] == account["id"]:
+      registry["active"] = new_id
+    registry["alert"] = ""
+    account["id"] = new_id
+    account["label"] = label
+    return dict(account)
 
 
 def use(provider: str, target: str) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -634,6 +666,11 @@ def main(argv: list[str]) -> int:
       if len(args) < 2:
         raise AccountError("remove <provider> <account>")
       print(json.dumps(remove(provider, args[1])))
+    elif command == "rename":
+      provider = provider_arg(args)
+      if len(args) < 3:
+        raise AccountError("rename <provider> <account> <label>")
+      print(json.dumps(rename(provider, args[1], " ".join(args[2:]))))
     elif command == "mode":
       provider = provider_arg(args)
       if len(args) < 2:
