@@ -280,6 +280,19 @@ Item {
       script: "current=$(powerprofilesctl get 2>/dev/null); omarchy-powerprofiles-list 2>/dev/null | while read -r p; do [[ -z $p ]] && continue; printf '%s\\t%s\\t%s\\n' \"$p\" \"$p\" \"$current\"; done",
       icon: "\udb81\udc0b",
       actionFor: function(value) { return "omarchy-powerprofiles-set autodetect " + Util.shellQuote(value) }
+    },
+    // Subscription accounts, with the one new sessions use checked.
+    "claude-accounts": {
+      script: "omarchy-agent-account-list claude --json 2>/dev/null | jq -r '.[0] as $p | $p.accounts[] | [.label, .id, $p.active] | @tsv'",
+      icon: "\udb80\udc04",
+      volatile: true,
+      actionFor: function(value) { return "omarchy-agent-account-use claude " + Util.shellQuote(value) }
+    },
+    "codex-accounts": {
+      script: "omarchy-agent-account-list codex --json 2>/dev/null | jq -r '.[0] as $p | $p.accounts[] | [.label, .id, $p.active] | @tsv'",
+      icon: "\udb80\udc04",
+      volatile: true,
+      actionFor: function(value) { return "omarchy-agent-account-use codex " + Util.shellQuote(value) }
     }
   })
 
