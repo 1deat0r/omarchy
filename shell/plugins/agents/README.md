@@ -16,12 +16,15 @@ cross-device aggregation); `Agent.qml` is the per-record file watcher.
 - **Limits** — the percentage of each allowance used, a matching meter, and
   the time until the session or weekly window resets.
 - **Accounts** — with more than one Claude or Codex subscription account
-  (see `omarchy agent account`), the limits become one card per account:
-  label, email, plan, its own meters, and an _Active_ badge on the account
-  new sessions start as. A parked account whose sign-in lapsed shows its last
-  known numbers in the urgent color. A small Notify / Autoswitch toggle above
-  the cards picks what reaching the threshold does (hover it for the threshold), and a small + beside it adds an account. With a single account, an _Add account_ button sits below the
-  limits for Claude and Codex instead.
+  (see `omarchy agent account`), the limits become one block per account:
+  name, email, plan, and a compact line per window with its meter,
+  percentage, and time to reset. An accent rail and an _ACTIVE_ label mark
+  the account new sessions start as; the others get a quiet rail and a _Use_
+  link. Click a name to rename the account in place. A sign-in that needs
+  attention shows in the urgent color. Notify / Autoswitch above the list
+  picks what reaching the threshold does (hover either for the threshold),
+  and the + beside them adds an account. With a single account, an _Add
+  account_ button sits below the limits for Claude and Codex instead.
 - **Balance** — prepaid agents report a credit ledger instead of limits:
   remaining credit, a fuel-gauge meter that drains toward empty, and
   funded-versus-spent detail.

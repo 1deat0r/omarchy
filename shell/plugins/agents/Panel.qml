@@ -67,6 +67,16 @@ Panel {
     usage.refreshAll(true)
   }
 
+  function renameAccount(account, label) {
+    if (!provider || !account) return
+    Util.execArgv(["omarchy-agent-account-rename", provider.providerId, String(account.id), label])
+  }
+
+  // Hands the keyboard back to the panel after an inline edit.
+  function focusKeys() {
+    keyCatcher.forceActiveFocus()
+  }
+
   function useAccount(account) {
     if (!provider || !account || account.active) return
     Util.execArgv(["omarchy-agent-account-use", provider.providerId, String(account.id)])
@@ -676,64 +686,84 @@ Panel {
             id: accountsSection
             visible: root.multiAccount
             width: parent.width
-            spacing: Style.space(10)
+            spacing: Style.space(16)
 
             // What happens when the active account reaches its threshold:
             // a notification offering the switch, or the switch itself.
             Item {
               width: parent.width
-              implicitHeight: switchToggle.implicitHeight
+              implicitHeight: Math.max(modeToggle.implicitHeight, addLink.implicitHeight)
 
               Row {
-                id: switchToggle
+                id: modeToggle
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: Style.spacing.sm
+                spacing: Style.space(14)
 
                 Repeater {
                   model: [{ mode: "manual", label: "Notify" }, { mode: "auto", label: "Autoswitch" }]
 
-                  Button {
+                  TextLink {
                     required property var modelData
                     text: modelData.label
-                    tooltipText: modelData.label + " at " + root.switchThreshold(root.provider) + "%"
-                    selected: (modelData.mode === "auto") === root.autoSwitch
-                    bordered: true
-                    foreground: root.foreground
-                    fontFamily: root.fontFamily
-                    fontSize: Style.font.caption
-                    horizontalPadding: Style.space(8)
-                    verticalPadding: Style.space(2)
+                    current: (modelData.mode === "auto") === root.autoSwitch
                     onClicked: root.setSwitchMode(modelData.mode)
                   }
                 }
               }
 
-              Button {
+              TextLink {
+                id: addLink
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
                 text: "+"
-                tooltipText: "Add account"
-                bordered: false
-                foreground: root.foreground
-                fontFamily: root.fontFamily
-                fontSize: Style.font.caption
-                horizontalPadding: Style.space(8)
-                verticalPadding: Style.space(2)
+                font.pixelSize: Style.font.body
                 onClicked: root.addAccount()
               }
             }
 
+            // The active account wears the accent rail; the others a quiet
+            // one, so the accounts read as a list without boxing each in.
             Repeater {
               model: root.accounts
 
-              AccountCard {
+              Item {
+                id: railAccount
                 required property var modelData
                 required property int index
                 width: accountsSection.width
-                account: modelData
-                number: index + 1
-                picked: index === root.accountCursor
+                implicitHeight: railBody.implicitHeight
+
+                Rectangle {
+                  width: Style.space(3)
+                  height: parent.height
+                  radius: width / 2
+                  color: railAccount.modelData.active === true ? Color.accent : root.track
+                }
+
+                Column {
+                  id: railBody
+                  anchors.left: parent.left
+                  anchors.leftMargin: Style.space(14)
+                  anchors.right: parent.right
+                  spacing: Style.space(8)
+
+                  AccountHeader {
+                    width: parent.width
+                    account: railAccount.modelData
+                    picked: railAccount.index === root.accountCursor
+                  }
+
+                  Repeater {
+                    model: root.limitWindows({ limits: railAccount.modelData.limits || [] })
+
+                    CompactLimit {
+                      required property var modelData
+                      width: railBody.width
+                      window: modelData
+                    }
+                  }
+                }
               }
             }
           }
@@ -845,84 +875,108 @@ Panel {
     }
   }
 
-  // One subscription account: who it is, whether new sessions use it, and its
-  // limit windows. The keyboard picks a card with its number and Enter makes
-  // it active; the mouse gets a Use button, since a click on a meter should
-  // only ever read it.
-  component AccountCard: BorderSurface {
-    id: accountCard
-    property var account: ({})
-    property int number: 0
+  // A plain-text control: dim until hovered or picked, accent when it's the
+  // current choice. Stands in for bordered buttons, which pile up here.
+  component TextLink: Text {
+    id: link
+    signal clicked()
+    property bool current: false
     property bool picked: false
+    readonly property bool hot: linkMouse.containsMouse || picked
+    textFormat: Text.PlainText
+    color: current ? Color.accent : (hot ? root.foreground : root.dim)
+    font.family: root.fontFamily
+    font.pixelSize: Style.font.caption
+    font.bold: current
+    font.underline: hot && !current
 
+    MouseArea {
+      id: linkMouse
+      anchors.fill: parent
+      anchors.margins: -Style.space(4)
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: link.clicked()
+    }
+  }
+
+  // An account's name, email and plan, with ACTIVE or a Use link on the
+  // right. Clicking the name edits it in place: Enter renames, Esc or
+  // clicking away leaves it as it was.
+  component AccountHeader: Item {
+    id: head
+    property var account: ({})
+    property bool picked: false
+    property bool editing: false
+    // The new name shows at once; the record catches up a moment later.
+    property string renamedTo: ""
     readonly property bool isActive: account.active === true
-    readonly property var windows: root.limitWindows({ limits: account.limits || [] })
+    readonly property string label: renamedTo !== "" ? renamedTo : String(account.label || account.id || "")
 
-    implicitHeight: accountBody.implicitHeight + Style.space(12) * 2
-    radius: Style.cornerRadius
-    color: isActive ? root.alpha(Color.accent, 0.08) : "transparent"
-    borderSpec: Border.flat(picked ? Color.accent : root.alpha(root.foreground, isActive ? 0.35 : 0.15), 1)
+    onAccountChanged: renamedTo = ""
+    implicitHeight: Math.max(headText.implicitHeight, headAction.implicitHeight)
+
+    function startRename() {
+      editing = true
+      nameField.text = label
+      nameField.forceActiveFocus()
+      nameField.selectAll()
+    }
+
+    function finishRename(save) {
+      if (!editing) return
+      var value = nameField.text.trim()
+      editing = false
+      root.focusKeys()
+      if (save && value !== "" && value !== label) {
+        renamedTo = value
+        root.renameAccount(account, value)
+      }
+    }
 
     Column {
-      id: accountBody
+      id: headText
       anchors.left: parent.left
-      anchors.right: parent.right
-      anchors.top: parent.top
-      anchors.margins: Style.space(12)
-      spacing: Style.space(8)
+      anchors.right: headAction.left
+      anchors.rightMargin: Style.spacing.sm
+      spacing: Style.space(2)
 
-      Item {
-        width: parent.width
-        implicitHeight: Math.max(accountLabel.implicitHeight, accountAction.implicitHeight)
+      Text {
+        id: nameText
+        textFormat: Text.PlainText
+        visible: !head.editing
+        width: Math.min(implicitWidth, parent.width)
+        text: head.label
+        color: head.picked ? Color.accent : root.foreground
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.body
+        font.bold: head.isActive
+        font.underline: nameMouse.containsMouse
+        elide: Text.ElideRight
 
-        Text {
-          id: accountLabel
-          textFormat: Text.PlainText
-          anchors.left: parent.left
-          anchors.right: accountAction.left
-          anchors.rightMargin: Style.spacing.sm
-          anchors.verticalCenter: parent.verticalCenter
-          text: accountCard.number + "  " + String(accountCard.account.label || accountCard.account.id || "")
-          color: root.foreground
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.body
-          font.bold: accountCard.isActive
-          elide: Text.ElideRight
+        MouseArea {
+          id: nameMouse
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.IBeamCursor
+          onClicked: head.startRename()
         }
+      }
 
-        Item {
-          id: accountAction
-          anchors.right: parent.right
-          anchors.verticalCenter: parent.verticalCenter
-          implicitWidth: accountCard.isActive ? activeBadge.implicitWidth : useButton.implicitWidth
-          implicitHeight: accountCard.isActive ? activeBadge.implicitHeight : useButton.implicitHeight
-
-          Text {
-            id: activeBadge
-            visible: accountCard.isActive
-            anchors.right: parent.right
-            anchors.verticalCenter: parent.verticalCenter
-            text: "ACTIVE"
-            color: Color.accent
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
-            font.bold: true
-          }
-
-          Button {
-            id: useButton
-            visible: !accountCard.isActive
-            anchors.right: parent.right
-            anchors.verticalCenter: parent.verticalCenter
-            text: accountCard.picked ? "Use  ⏎" : "Use"
-            bordered: true
-            hasCursor: accountCard.picked
-            foreground: root.foreground
-            fontFamily: root.fontFamily
-            fontSize: Style.font.caption
-            verticalPadding: Style.space(2)
-            onClicked: root.useAccount(accountCard.account)
-          }
+      TextField {
+        id: nameField
+        visible: head.editing
+        width: parent.width
+        foreground: root.foreground
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.body
+        horizontalPadding: Style.space(4)
+        verticalPadding: Style.space(1)
+        onAccepted: head.finishRename(true)
+        onActiveFocusChanged: if (!activeFocus) head.finishRename(false)
+        Keys.onEscapePressed: function(event) {
+          head.finishRename(false)
+          event.accepted = true
         }
       }
 
@@ -930,22 +984,86 @@ Panel {
         textFormat: Text.PlainText
         visible: text !== ""
         width: parent.width
-        text: root.accountDetail(accountCard.account)
-        color: accountCard.account.stale === true ? root.urgent : root.dim
+        text: root.accountDetail(head.account)
+        // Numbers kept from an earlier check are normal; a sign-in that
+        // needs attention is not.
+        color: String(head.account.usageStatusText || "") !== "" ? root.urgent : root.dim
         font.family: root.fontFamily
         font.pixelSize: Style.font.caption
         elide: Text.ElideRight
       }
+    }
 
-      Repeater {
-        model: accountCard.windows
+    Item {
+      id: headAction
+      anchors.right: parent.right
+      anchors.top: parent.top
+      implicitWidth: head.isActive ? headActive.implicitWidth : headUse.implicitWidth
+      implicitHeight: head.isActive ? headActive.implicitHeight : headUse.implicitHeight
 
-        LimitRow {
-          required property var modelData
-          width: accountBody.width
-          window: modelData
-        }
+      Text {
+        id: headActive
+        visible: head.isActive
+        anchors.right: parent.right
+        text: "ACTIVE"
+        color: Color.accent
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        font.bold: true
       }
+
+      TextLink {
+        id: headUse
+        visible: !head.isActive
+        anchors.right: parent.right
+        text: head.picked ? "Use ⏎" : "Use"
+        picked: head.picked
+        onClicked: root.useAccount(head.account)
+      }
+    }
+  }
+
+  // One line per limit window: title, meter, percentage, and reset.
+  component CompactLimit: Item {
+    id: compact
+    property var window: null
+    readonly property bool alarming: window && window.percent >= 0.9
+    readonly property real resetMs: root.resetMsFor(window)
+    implicitHeight: compactTitle.implicitHeight
+
+    Text {
+      id: compactTitle
+      textFormat: Text.PlainText
+      width: parent.width * 0.3
+      anchors.verticalCenter: parent.verticalCenter
+      text: compact.window ? compact.window.title : ""
+      color: root.foreground
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.caption
+      elide: Text.ElideRight
+    }
+
+    Meter {
+      anchors.left: compactTitle.right
+      anchors.right: compactValue.left
+      anchors.rightMargin: Style.spacing.md
+      anchors.verticalCenter: parent.verticalCenter
+      value: compact.window ? compact.window.percent : -1
+      alarming: compact.alarming
+    }
+
+    Text {
+      id: compactValue
+      textFormat: Text.PlainText
+      width: Style.space(96)
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      horizontalAlignment: Text.AlignRight
+      text: (compact.window ? Math.round(compact.window.percent * 100) + "%" : "—")
+        + (compact.resetMs > 0 ? "  " + root.formatDuration(compact.resetMs) : "")
+      color: compact.alarming ? root.urgent : root.dim
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.caption
     }
   }
 
@@ -1001,6 +1119,7 @@ Panel {
     Text {
       id: resetText
       textFormat: Text.PlainText
+      visible: text !== ""
       width: parent.width
       text: {
         var remainingMs = root.resetMsFor(limitRow.window)
