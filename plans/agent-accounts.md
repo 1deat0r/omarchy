@@ -1,6 +1,6 @@
 # Plan: Agent accounts — several Claude and Codex subscriptions, one switch
 
-Revision 1.
+Revision 2 — updated to match the implementation on this branch.
 
 ## Problem
 
@@ -51,9 +51,9 @@ A new `agent-account` route under the existing `agent` group:
 - `omarchy agent account add <claude|codex> [label]` — the add flow below.
 - `omarchy agent account use <claude|codex> <id|next>` — make an account active; notifies "New Claude sessions now use Work (Max 20x). Running sessions stay on Personal."
 - `omarchy agent account remove <claude|codex> <id>` — deletes an added account's home after confirming; the primary can't be removed. Never runs `claude auth logout`, which would revoke the token for every copy.
-- `omarchy agent account switch-mode <claude|codex> <manual|auto> [threshold]`.
+- `omarchy agent account mode <claude|codex> [manual|auto] [threshold]` — without arguments, says how switching is set.
 
-`omarchy-agent-account-home` is `# omarchy:hidden=true` plumbing.
+`omarchy-agent-account-home` and `omarchy-agent-account-state` (the Python registry, identity and switching policy the commands share) are `# omarchy:hidden=true` plumbing.
 
 ### Adding an account
 
@@ -75,7 +75,7 @@ The collectors already honor `CLAUDE_CONFIG_DIR` / `CODEX_HOME`, so per-account 
 
 ### Switching
 
-After every usage update, `omarchy-agent-usage-update` runs `omarchy-agent-account-autoswitch`, a small hidden command that, for each provider in `auto` mode:
+After every usage update, `omarchy-agent-usage-update` runs `omarchy-agent-account-state autoswitch`, which, for each provider with a registry:
 
 1. Looks at the active account's highest limit (five-hour or weekly). Below the threshold: nothing.
 2. Otherwise picks the account with the lowest highest-limit that is itself under the threshold, stale numbers adjusted for passed resets. Ties go to the account whose binding window resets soonest.
@@ -97,11 +97,11 @@ Under the Claude and Codex tabs, the single limits block becomes an **Accounts**
 - The bar icon's warning reflects the active account, as it does now.
 - Token-by-day and by-model charts stay per provider, labeled *All accounts*.
 
-Settings in the widget manifest schema: `providers.claude.switch` (`manual|auto`), `providers.claude.threshold` (integer 50–100, step 5), same for Codex. These write through to the registry, so the CLI and the panel agree.
+The registry is the only place switching is configured, so the CLI, the menu and the panel can't disagree: `m` in the panel and `omarchy agent account mode` both write it, and the record carries it back to the panel as `accountSwitch`. The threshold is set from the CLI.
 
 ### Menu
 
-Under *Setup › Agent*: *Add Claude account*, *Add Codex account*, and *Switch Claude account* / *Switch Codex account* entries that open the account list as a menu (guarded to appear only once a provider has two accounts).
+*Setup › Agent Accounts › Claude* and *› Codex* list each provider's accounts through volatile `claude-accounts` / `codex-accounts` menu providers, with the active one checked and selection switching to it, followed by an *Add Account* row.
 
 ## Tests
 
@@ -109,7 +109,7 @@ Under *Setup › Agent*: *Add Claude account*, *Add Codex account*, and *Switch 
 - `test/shell.d/agent-account-autoswitch-test.sh`: threshold crossing, picking the lowest-usage candidate, stale-with-passed-reset treated as 0%, all-exhausted notifies once, no flap-back after a reset, manual mode only notifies.
 - Extend `agent-usage-claude-limits-test.sh` / `agent-usage-codex-scanner-test.sh` for the `accounts` array and per-account caches.
 - Shell function test: an explicit `CLAUDE_CONFIG_DIR` beats the active account.
-- Visual verification of the panel with one, two and three accounts, and in the stale and exhausted states.
+- Visual verification of the panel with one and three accounts, including a stale account and a picked card, rendered from the branch against fixture records.
 
 ## Documentation
 
