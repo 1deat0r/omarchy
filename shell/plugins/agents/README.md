@@ -11,8 +11,10 @@ cross-device aggregation); `Agent.qml` is the per-record file watcher.
 
 - **Hero** — the mark, the tool, and the plan it runs on ("Max 20x", "Pro").
   Auth and endpoint problems replace the plan line and repeat in a card.
-- **Subscription switch** — one chip per enabled agent (`h`/`l` or click).
-  It appears only when more than one agent is enabled.
+- **Subscription switch** — the hero's top-right corner holds a small mark
+  per enabled agent, the selected one at full strength (`h`/`l` or click).
+  They appear only when more than one agent is enabled. A + after them adds
+  a Claude or Codex account.
 - **Limits** — the percentage of each allowance used, a matching meter, and
   the time until the session or weekly window resets.
 - **Accounts** — with more than one Claude or Codex subscription account
@@ -23,8 +25,7 @@ cross-device aggregation); `Agent.qml` is the per-record file watcher.
   link. Click a name to rename the account in place. A sign-in that needs
   attention shows in the urgent color. Notify / Autoswitch above the list
   picks what reaching the threshold does (hover either for the threshold),
-  and the + beside them adds an account. With a single account, an _Add
-  account_ button sits below the limits for Claude and Codex instead.
+  and the + in the hero adds another account.
 - **Balance** — prepaid agents report a credit ledger instead of limits:
   remaining credit, a fuel-gauge meter that drains toward empty, and
   funded-versus-spent detail.
@@ -37,7 +38,7 @@ cross-device aggregation); `Agent.qml` is the per-record file watcher.
 
 A subscription appears only when it is enabled in settings and has actually
 recorded usage — on this machine or on a synced one. With one such agent
-there is no switch row at all; with none, the module leaves the bar entirely
+there are no marks to switch between; with none, the module leaves the bar entirely
 rather than sitting there with nothing to say. A CLI installed mid-session
 shows up at the next refresh, so nothing polls the disk waiting for it.
 

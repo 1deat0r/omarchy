@@ -471,6 +471,38 @@ Panel {
             width: parent.width
             title: root.provider ? root.provider.providerName : ""
             meta: root.heroMeta(root.provider)
+
+            // One small mark per provider to switch between them (the
+            // selected one at full strength), and + to add an account.
+            trailingControl: Component {
+              Row {
+                spacing: Style.space(12)
+
+                Repeater {
+                  model: root.providers.length > 1 ? root.providers : []
+
+                  ProviderMark {
+                    required property var modelData
+                    required property int index
+                    anchors.verticalCenter: parent.verticalCenter
+                    provider: modelData
+                    selected: index === root.providerIndex
+                    onClicked: {
+                      root.cursorActive = true
+                      root.selectProvider(index)
+                    }
+                  }
+                }
+
+                TextLink {
+                  visible: root.accountsSupported
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "+"
+                  font.pixelSize: Style.font.heading
+                  onClicked: root.addAccount()
+                }
+              }
+            }
             foreground: root.foreground
             fontFamily: root.fontFamily
 
@@ -526,42 +558,6 @@ Panel {
             font.pixelSize: Style.font.body
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.WordWrap
-          }
-
-          // ---------- Provider switch ----------
-          Row {
-            id: providerSwitch
-            visible: root.providers.length > 1
-            width: parent.width
-            spacing: Style.spacing.md
-
-            readonly property real cellWidth: root.providers.length > 0
-              ? (width - spacing * (root.providers.length - 1)) / root.providers.length
-              : 0
-
-            Repeater {
-              model: root.providers
-
-              Button {
-                required property var modelData
-                required property int index
-
-                width: providerSwitch.cellWidth
-                text: modelData.providerName
-                selected: index === root.providerIndex
-                hasCursor: root.cursorActive && index === root.providerIndex
-                bordered: true
-                foreground: root.foreground
-                fontFamily: root.fontFamily
-                fontSize: Style.font.bodySmall
-                verticalPadding: Style.spacing.controlPaddingY
-                onClicked: {
-                  root.cursorActive = true
-                  root.selectProvider(index)
-                }
-                onHovered: function(isHovered) { if (isHovered) root.cursorActive = true }
-              }
-            }
           }
 
           // ---------- Status ----------
@@ -692,7 +688,7 @@ Panel {
             // a notification offering the switch, or the switch itself.
             Item {
               width: parent.width
-              implicitHeight: Math.max(modeToggle.implicitHeight, addLink.implicitHeight)
+              implicitHeight: modeToggle.implicitHeight
 
               Row {
                 id: modeToggle
@@ -712,14 +708,6 @@ Panel {
                 }
               }
 
-              TextLink {
-                id: addLink
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                text: "+"
-                font.pixelSize: Style.font.body
-                onClicked: root.addAccount()
-              }
             }
 
             // The active account wears the accent rail; the others a quiet
@@ -766,24 +754,6 @@ Panel {
                 }
               }
             }
-          }
-
-          Row {
-            visible: root.accountsSupported && !root.multiAccount
-            width: parent.width
-            spacing: Style.spacing.md
-
-            Button {
-              width: parent.width
-              text: "Add account"
-              bordered: true
-              foreground: root.foreground
-              fontFamily: root.fontFamily
-              fontSize: Style.font.bodySmall
-              verticalPadding: Style.spacing.controlPaddingY
-              onClicked: root.addAccount()
-            }
-
           }
 
           // ---------- Usage ----------
@@ -872,6 +842,57 @@ Panel {
           }
         }
       }
+    }
+  }
+
+  // A provider's mark as a switch: full strength when selected, dimmed
+  // otherwise, brighter on hover. Falls back to the bar glyph without a mark.
+  component ProviderMark: Item {
+    id: mark
+    signal clicked()
+    property var provider: null
+    property bool selected: false
+    property var candidates: root.iconCandidatesForProvider(provider, root.surface)
+    property string candidatesKey: candidates.join("\n")
+    property int candidateIndex: 0
+    onCandidatesKeyChanged: candidateIndex = 0
+
+    width: Style.font.heading
+    height: Style.font.heading
+    opacity: selected ? 1.0 : (markMouse.containsMouse ? 0.8 : 0.35)
+
+    Image {
+      id: markImage
+      anchors.fill: parent
+      source: mark.candidateIndex < mark.candidates.length ? mark.candidates[mark.candidateIndex] : ""
+      sourceSize.width: Style.font.heading * 2
+      sourceSize.height: Style.font.heading * 2
+      fillMode: Image.PreserveAspectFit
+      onStatusChanged: if (status === Image.Error && mark.candidateIndex < mark.candidates.length)
+        Qt.callLater(function() { mark.candidateIndex++ })
+    }
+
+    Text {
+      anchors.centerIn: parent
+      visible: markImage.status !== Image.Ready
+      text: button.text
+      color: root.foreground
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.heading
+    }
+
+    MouseArea {
+      id: markMouse
+      anchors.fill: parent
+      anchors.margins: -Style.space(4)
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: mark.clicked()
+    }
+
+    PanelToolTip {
+      visible: markMouse.containsMouse
+      text: mark.provider ? mark.provider.providerName : ""
     }
   }
 
