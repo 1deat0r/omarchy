@@ -489,18 +489,19 @@ def notify(title: str, body: str, action: list[str] | None = None) -> None:
   subprocess.run(command, check=False)
 
 
-def autoswitch(provider: str, now: dt.datetime | None = None) -> None:
+# Returns True when the active account changed.
+def autoswitch(provider: str, now: dt.datetime | None = None) -> bool:
   now = now or dt.datetime.now(dt.timezone.utc)
   name = PROVIDERS[provider]["name"]
   with Locked(provider) as registry:
     if len(registry["accounts"]) < 2:
-      return
+      return False
     decision = decide(registry, usage_by_account(provider), now)
     if decision is None:
-      return
+      return False
     if decision["action"] == "clear":
       registry["alert"] = ""
-      return
+      return False
 
     registry["alert"] = decision["alert"]
     source = decision["from"]
@@ -509,7 +510,7 @@ def autoswitch(provider: str, now: dt.datetime | None = None) -> None:
       soonest = decision["soonest"]
       when = f" {soonest[1]['label']} resets in {duration(soonest[0] - now)}." if soonest else ""
       notify(f"All {name} accounts are over {threshold}%", f"Staying on {source['label']}.{when}")
-      return
+      return False
 
     target = decision["to"]
     headline = f"{source['label']} is at {round(decision['fromPeak'])}% of a {name} limit"
@@ -518,12 +519,13 @@ def autoswitch(provider: str, now: dt.datetime | None = None) -> None:
       if not target.get("primary"):
         link_shared(provider, account_home(provider, target))
       notify(headline, f"New {name} sessions now use {target['label']} ({round(decision['toPeak'])}%). Running sessions stay on {source['label']}.")
-    else:
-      notify(
-        headline,
-        f"{target['label']} is at {round(decision['toPeak'])}%. Click to switch new sessions to it.",
-        ["omarchy-agent-account-use", provider, target["id"]],
-      )
+      return True
+    notify(
+      headline,
+      f"{target['label']} is at {round(decision['toPeak'])}%. Click to switch new sessions to it.",
+      ["omarchy-agent-account-use", provider, target["id"]],
+    )
+    return False
 
 
 # --------------------------------------------------------------------- CLI
@@ -610,9 +612,11 @@ def main(argv: list[str]) -> int:
       provider = provider_arg(args)
       link_shared(provider, Path(args[1]))
     elif command == "autoswitch":
+      # Prints each provider whose active account changed, so the caller
+      # knows which usage records to collect again.
       for provider in ([provider_arg(args)] if args else list(PROVIDERS)):
-        if registry_path(provider).exists():
-          autoswitch(provider)
+        if registry_path(provider).exists() and autoswitch(provider):
+          print(provider)
     else:
       raise AccountError(f"Unknown command: {command}")
   except AccountError as error:
