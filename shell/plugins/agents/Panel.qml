@@ -703,7 +703,7 @@ Panel {
 
             Button {
               width: parent.cellWidth
-              text: "Add account  a"
+              text: "Add account"
               bordered: true
               foreground: root.foreground
               fontFamily: root.fontFamily
