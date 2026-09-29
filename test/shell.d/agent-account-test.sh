@@ -122,6 +122,13 @@ fi
 [[ $(omarchy-agent-account-list claude --json | jq '.[0].accounts | length') == 2 ]] || fail "an abandoned login adds nothing"
 pass "an abandoned login adds nothing"
 
+OMARCHY_TEST_LOGIN_UUID=u-next OMARCHY_TEST_LOGIN_EMAIL=next@example.com \
+  omarchy-agent-account-add claude Next </dev/null >/dev/null
+[[ $(omarchy-agent-account-list claude --json | jq -r '.[0].accounts[] | select(.label == "Next") | .id') == "next-2" ]] ||
+  fail "an account label can't take an id that routing already answers to"
+omarchy-agent-account-remove claude next-2 </dev/null >/dev/null
+pass "account ids stay clear of routing keywords"
+
 OMARCHY_TEST_LOGIN_UUID=acct-2 OMARCHY_TEST_LOGIN_EMAIL=side@example.com \
   omarchy-agent-account-add codex Side </dev/null >/dev/null
 [[ $(omarchy-agent-account-list codex --json | jq -c '.[0].accounts[1] | {id, email, plan}') == '{"id":"side","email":"side@example.com","plan":"Pro"}' ]] ||

@@ -52,6 +52,9 @@ PROVIDERS = {
 }
 
 DEFAULT_THRESHOLD = 95
+# Ids an account can't take because something else already answers to them:
+# `use <provider> next` cycles, and the menu's Add Account row is `.add`.
+RESERVED_IDS = {"next", "add"}
 SWITCH_MODES = ("manual", "auto")
 
 
@@ -320,7 +323,7 @@ def register(provider: str, label: str, pending: Path) -> dict[str, Any]:
     label = label.strip() or found["email"].split("@")[0] or "Account"
     account_id = slug(label) or "account"
     base, n = account_id, 2
-    while find(registry, account_id):
+    while find(registry, account_id) or account_id in RESERVED_IDS:
       account_id, n = f"{base}-{n}", n + 1
 
     home = accounts_root() / provider / account_id
