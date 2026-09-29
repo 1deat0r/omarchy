@@ -78,9 +78,14 @@ Panel {
     root.close()
   }
 
+  readonly property bool autoSwitch: !!provider && !!provider.accountSwitch && provider.accountSwitch.mode === "auto"
+
   function toggleSwitchMode() {
-    if (!multiAccount) return
-    var mode = provider.accountSwitch && provider.accountSwitch.mode === "auto" ? "manual" : "auto"
+    setSwitchMode(autoSwitch ? "manual" : "auto")
+  }
+
+  function setSwitchMode(mode) {
+    if (!multiAccount || mode === (autoSwitch ? "auto" : "manual")) return
     Util.execArgv(["bash", "-c", 'omarchy-agent-account-mode "$1" "$2" >/dev/null && omarchy-agent-usage-update --limits-only "$1"',
                    "omarchy-agent-account-mode", provider.providerId, mode])
   }
@@ -101,9 +106,8 @@ Panel {
     return parts.join(" · ")
   }
 
-  function switchHeader(p) {
-    var s = p && p.accountSwitch ? p.accountSwitch : { mode: "manual", threshold: 95 }
-    return "ACCOUNTS · " + (s.mode === "auto" ? "SWITCHES" : "NOTIFIES") + " AT " + Number(s.threshold || 95) + "%"
+  function switchThreshold(p) {
+    return p && p.accountSwitch ? Number(p.accountSwitch.threshold || 95) : 95
   }
 
   function launchAgent() {
@@ -674,10 +678,45 @@ Panel {
             width: parent.width
             spacing: Style.space(10)
 
-            PanelSectionHeader {
-              text: root.switchHeader(root.provider)
-              foreground: root.foreground
-              fontFamily: root.fontFamily
+            // What happens when the active account reaches its threshold:
+            // a notification offering the switch, or the switch itself.
+            Item {
+              width: parent.width
+              implicitHeight: switchToggle.implicitHeight
+
+              Row {
+                id: switchToggle
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: Style.spacing.sm
+
+                Repeater {
+                  model: [{ mode: "manual", label: "Notify" }, { mode: "auto", label: "Autoswitch" }]
+
+                  Button {
+                    required property var modelData
+                    text: modelData.label
+                    selected: (modelData.mode === "auto") === root.autoSwitch
+                    bordered: true
+                    foreground: root.foreground
+                    fontFamily: root.fontFamily
+                    fontSize: Style.font.caption
+                    horizontalPadding: Style.space(8)
+                    verticalPadding: Style.space(2)
+                    onClicked: root.setSwitchMode(modelData.mode)
+                  }
+                }
+              }
+
+              Text {
+                textFormat: Text.PlainText
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                text: "at " + root.switchThreshold(root.provider) + "%"
+                color: root.dim
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+              }
             }
 
             Repeater {
@@ -699,10 +738,8 @@ Panel {
             width: parent.width
             spacing: Style.spacing.md
 
-            readonly property real cellWidth: root.multiAccount ? (width - spacing) / 2 : width
-
             Button {
-              width: parent.cellWidth
+              width: parent.width
               text: "Add account"
               bordered: true
               foreground: root.foreground
@@ -712,17 +749,6 @@ Panel {
               onClicked: root.addAccount()
             }
 
-            Button {
-              visible: root.multiAccount
-              width: parent.cellWidth
-              text: (root.provider && root.provider.accountSwitch && root.provider.accountSwitch.mode === "auto" ? "Auto switch: on" : "Auto switch: off") + "  m"
-              bordered: true
-              foreground: root.foreground
-              fontFamily: root.fontFamily
-              fontSize: Style.font.bodySmall
-              verticalPadding: Style.spacing.controlPaddingY
-              onClicked: root.toggleSwitchMode()
-            }
           }
 
           // ---------- Usage ----------
