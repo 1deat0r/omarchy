@@ -1,0 +1,48 @@
+#!/bin/bash
+
+# omarchy:summary=Sign in to another Claude or Codex subscription
+# omarchy:args=<claude|codex> [label]
+# omarchy:examples=omarchy agent account add claude Work | omarchy agent account add codex
+
+set -uo pipefail
+
+case "${1:-}" in
+claude) provider="claude"; name="Claude"; site="claude.ai" ;;
+codex) provider="codex"; name="Codex"; site="chatgpt.com" ;;
+*)
+  echo "Usage: omarchy-agent-account-add <claude|codex> [label]" >&2
+  exit 1
+  ;;
+esac
+label="${2:-}"
+
+if [[ -z $label ]] && [[ -t 0 ]]; then
+  label=$(gum input --placeholder "Work" --prompt "Name this $name account: ") || exit 130
+fi
+
+cat <<EOF
+
+The browser signs in as whoever is logged into $site right now.
+Switch $site to the account you're adding first, or copy the login link into a private window.
+
+Don't log out of the $name CLI to do this: logging out revokes the saved sign-in.
+
+EOF
+
+home=$(omarchy-agent-account-state begin "$provider") || exit 1
+
+if [[ $provider == "claude" ]]; then
+  CLAUDE_CONFIG_DIR="$home" claude auth login
+else
+  CODEX_HOME="$home" codex login
+fi
+
+if account=$(omarchy-agent-account-state register "$provider" "$label" "$home"); then
+  added=$(jq -r '.label + (if .email != "" then " (" + .email + ")" else "" end)' <<<"$account")
+  echo
+  echo "Added $added."
+  echo "Switch to it with: omarchy agent account use $provider $(jq -r .id <<<"$account")"
+  omarchy-agent-usage-update --force "$provider" >/dev/null 2>&1 &
+else
+  exit 1
+fi
