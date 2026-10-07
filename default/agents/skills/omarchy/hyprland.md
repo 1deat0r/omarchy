@@ -48,8 +48,11 @@ omarchy hyprland focus app <app-name>
 omarchy hyprland toggle <flag-name> [on|off|toggle]   # Persistent Hyprland flags
 ```
 
-These change state now. Anything that should survive a reboot or an update still
-belongs in the Lua files below.
+`toggle`, the commands built on it (`window gaps`, `monitor internal`, `monitor
+internal mirror`) and `workspace layout` persist their state under
+`~/.local/state/omarchy/`, and `monitor scaling` writes `monitors.lua` while it
+still has Omarchy's default monitor line — don't duplicate those in the Lua
+files. The rest act on the current session only.
 
 ## Lua API
 
@@ -74,8 +77,9 @@ o.launch_on_start(command)                        -- exec_on_start(o.launch(comm
 `o.bind`'s third argument is a command string, a Lua function callback (the
 stock bindings use callbacks — they run directly in the config), or a table
 taking one of
-`launch`, `focus` + `launch`, `webapp` (+ `focus`), `tui` (+ `focus`), `omarchy`.
-Anything else is passed through to `hl.bind` untouched.
+`launch`, `focus` + `launch`, `webapp` (+ `focus`), `tui` (+ `focus`), `omarchy`,
+`menu`, `panel`, `audio`, `brightness`, `ipc`. A table with none of these keys
+is passed through to `hl.bind` untouched.
 
 **`hl.*` — Hyprland's own Lua config API**, not Omarchy's. Documented upstream:
 

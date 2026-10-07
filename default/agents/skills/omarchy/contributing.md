@@ -23,8 +23,8 @@ description with steps to reproduce, and diagnostics. Gather them:
 omarchy version
 
 # Generate the diagnostic log (also written to /tmp/omarchy-debug.log).
-# Call the binary directly: `omarchy debug` only resolves in login/ssh
-# shells; in desktop-session shells it fails with "Unknown Omarchy command".
+# Call the binary directly: `omarchy debug` can fail with "Unknown Omarchy
+# command" (see System Commands in SKILL.md).
 omarchy-debug --no-sudo --print
 
 # Interactive variant: `omarchy-debug` with no flags offers to upload the log
