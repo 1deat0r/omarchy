@@ -5,12 +5,13 @@ description: >
   Use when editing any user config under ~/.config/ — notably hypr/, omarchy/,
   the terminals (alacritty/foot/kitty/ghostty), btop, fastfetch, lazygit, starship,
   git — or running a user-facing omarchy command. Triggers: Hyprland, window rules,
-  keybindings, monitors, gaps, borders, blur, opacity, omarchy-shell, bar,
-  widgets, plugins, hooks, terminal config, themes, backgrounds, fonts,
-  notifications, audio/volume, brightness, default browser/terminal/editor,
-  display text size, night light, idle, lock screen, screenshots, reminders,
-  layer rules, workspace settings, display config. Excludes Omarchy source
-  development (repo work, migrations, `omarchy dev ...` workflows).
+  window behavior, animations, keybindings, monitors, gaps, borders, blur, opacity,
+  omarchy-shell, bar, widgets, plugins, hooks, terminal config, themes, backgrounds,
+  fonts, appearance changes, notifications, audio/volume, brightness, default
+  browser/terminal/editor, display text size, night light, idle, lock screen,
+  screenshots, screen recording, reminders, layer rules, workspace settings,
+  display config. Excludes Omarchy source development (repo work, migrations,
+  `omarchy dev ...` workflows).
 ---
 
 # Omarchy Skill
@@ -21,22 +22,6 @@ This skill is for end-user customization on installed systems. It also covers
 routing problems upstream — bug reports and fix PRs — as described in
 [`contributing.md`](contributing.md). Developing Omarchy itself is out of
 scope — see Out of Scope below.
-
-## When This Skill MUST Be Used
-
-**ALWAYS invoke this skill for end-user requests involving ANY of these:**
-
-- Editing ANY file in `~/.config/hypr/` (window rules, animations, keybindings, monitors, etc.)
-- Editing `~/.config/omarchy/shell.json` (status bar layout, widgets)
-- Editing terminal configs (alacritty, foot, kitty, ghostty)
-- Editing ANY file in `~/.config/omarchy/`
-- Window behavior, animations, opacity, blur, gaps, borders
-- Layer rules, workspace settings, display/monitor configuration
-- Themes, backgrounds, fonts, appearance changes
-- User-facing `omarchy` commands (`omarchy theme ...`, `omarchy refresh ...`, `omarchy restart ...`, etc.)
-- Screenshots, screen recording, reminders, night light, idle behavior, lock screen
-
-**If you're about to edit a config file in ~/.config/ on this system, STOP and use this skill first.**
 
 ## Topic Guides
 
