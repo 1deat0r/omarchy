@@ -41,7 +41,7 @@ omarchy hyprland monitor internal <on|off|toggle|recover>
 omarchy hyprland monitor internal mirror <on|off|toggle|recover>
 omarchy hyprland window gaps toggle                   # No gaps / default gaps
 omarchy hyprland window transparency toggle
-omarchy hyprland workspace layout toggle              # dwindle <-> scrolling
+omarchy hyprland workspace layout toggle [back]       # dwindle -> scrolling -> floating; back reverses
 omarchy hyprland window pop [width height x y]        # Pop a tile out to a fixed position
 omarchy hyprland window close all
 omarchy hyprland focus app <app-name>
