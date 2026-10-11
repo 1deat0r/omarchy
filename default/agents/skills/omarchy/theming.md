@@ -32,10 +32,12 @@ the terminal configs `alacritty.toml`, `foot.ini`, `ghostty.conf` and
 `kitty.conf` (each names the program the terminal launches), and `vscode.json`
 (names a VS Code extension Omarchy would install). The Lua files and terminal
 configs are regenerated from `colors.toml` through
-`$OMARCHY_PATH/default/themed/*.tpl`; `vscode.json` is simply dropped — the
-extension install is skipped, and VS Code still gets the theme's colors through
-the generated `vscode-theme.json` (from `vscode-theme.json.tpl`). Every denied
-file is named on stderr.
+`$OMARCHY_PATH/default/themed/*.tpl` (a theme without `colors.toml` gets one
+derived from its `alacritty.toml`; with neither, nothing is generated).
+`vscode.json` is simply dropped — the extension install is skipped, and VS Code
+gets the theme's colors through `vscode-theme.json`: the one the theme ships, or
+else one generated from `vscode-theme.json.tpl`. Every denied file is named on
+stderr.
 
 Everything else a cloned theme ships is kept, including `btop.theme`,
 `chromium.theme`, `helix.toml`, `icons.theme`, `keyboard.rgb` and `shell.toml`.

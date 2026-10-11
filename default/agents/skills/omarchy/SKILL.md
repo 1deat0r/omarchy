@@ -226,7 +226,7 @@ omarchy system reboot           # Reboot
 prompts that will hang the terminal. Call the `omarchy-debug` binary directly —
 it works in every context. The `omarchy debug` route advertised by
 `omarchy --help` can fail with `Unknown Omarchy command`: the dispatcher only
-finds commands in the directory it was run from, and `omarchy-debug` ships to
+finds commands in the directory holding its own script, and `omarchy-debug` ships to
 `/usr/bin` in a separate package, so it is missing when the dispatcher runs as
 `/usr/share/omarchy/bin/omarchy`.
 
